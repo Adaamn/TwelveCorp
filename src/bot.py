@@ -52,23 +52,28 @@ async def ask_claude(interaction: discord.Interaction, otazka: str):
 
         reply_text = response.content[0].text
 
-        if len(reply_text) > 1024:
-            reply_text = reply_text[:1021] + "..."
+        if len(reply_text) > 4000:
+            reply_text = reply_text[:3997] + "..."
 
         embed = discord.Embed(
             title="🤖 TwelveTron AI",
             description=reply_text,
-            color=discord.Color.blue()
+            color=discord.Color.blurple()
         )
         
-        embed.set_footer(text=f"Otázka od: {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+        embed.insert_field_at(
+            index=0, 
+            name=f"💬 Otázka od {interaction.user.display_name}", 
+            value=otazka, 
+            inline=False
+        )
         
-        embed.add_field(name="Původní otázka", value=otazka, inline=False)
+        embed.set_footer(text="TwelveCorp AI Assistant")
 
         await interaction.followup.send(embed=embed)
 
     except Exception as e:
-        print(f"Chyba při komunikaci s Claude API: {e}")
+        print(f"Chyba při komunikaci s API: {e}")
         await interaction.followup.send("Omlouvám se, něco se pokazilo.")
 
 
