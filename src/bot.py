@@ -5,7 +5,6 @@ from discord.ext import commands
 import anthropic
 from dotenv import load_dotenv
 
-# Načtení proměnných z .env
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
@@ -42,7 +41,6 @@ async def ask_claude(interaction: discord.Interaction, otazka: str):
     await interaction.response.defer()
 
     try:
-        # Do volání jsme přidali parametr system=SYSTEM_PROMPT
         response = claude.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=1000,
@@ -54,10 +52,20 @@ async def ask_claude(interaction: discord.Interaction, otazka: str):
 
         reply_text = response.content[0].text
 
-        if len(reply_text) > 2000:
-            reply_text = reply_text[:1997] + "..."
+        if len(reply_text) > 1024:
+            reply_text = reply_text[:1021] + "..."
 
-        await interaction.followup.send(f"**Otázka:** {otazka}\n\n{reply_text}")
+        embed = discord.Embed(
+            title="🤖 TwelveTron AI",
+            description=reply_text,
+            color=discord.Color.blue()
+        )
+        
+        embed.set_footer(text=f"Otázka od: {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+        
+        embed.add_field(name="Původní otázka", value=otazka, inline=False)
+
+        await interaction.followup.send(embed=embed)
 
     except Exception as e:
         print(f"Chyba při komunikaci s Claude API: {e}")
