@@ -77,23 +77,28 @@ async def get_claude_response(otazka: str, max_tokens: int = 800) -> str:
 
     # 2. kontrola jestli si claude api vyzadal vyhledani na webu
     if response.stop_reason == "tool_use":
-        tool_use = next((block for block in response.content if block.type == "tool_use"), None)
+        # Pridame kompletní odpoved asistenta do historie
+        messages.append({"role": "assistant", "content": response.content})
 
-        if tool_use and tool_use.name == "web_search":
-            query = tool_use.input.get("query")
-            print(f"[SEARCH] Prohledávám web pro: '{query}'")
-            search_results = perform_web_search(query)
+        # Zpracujeme VŠECHNY tool_use bloky, které Claude poslal
+        tool_results = []
+        for block in response.content:
+            if block.type == "tool_use" and block.name == "web_search":
+                query = block.input.get("query")
+                print(f"[SEARCH] Prohledávám web pro: '{query}'")
+                search_results = perform_web_search(query)
 
-            messages.append({"role": "assistant", "content": response.content})
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": search_results,
+                })
+
+        # Pokud jsme našli výsledky, pošleme je najednou jako odpoved uzivatele
+        if tool_results:
             messages.append({
                 "role": "user",
-                "content": [
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": tool_use.id,
-                        "content": search_results,
-                    }
-                ],
+                "content": tool_results
             })
 
             # 3. druhy call claudovi s vysledky hledani
