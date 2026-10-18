@@ -26,12 +26,12 @@ SYSTEM_PROMPT = """
 Jmenuješ se TwelveCorp. 
 - Používej jednoduchá a srozumitelná vysvětlení.
 - Pokud zadání není jasné, stručně se doptáš.
-- Nevymýšlej si fakta. Pokud něco nevíš nebo nemáš aktuální data, použiij vyhledávací nástroj.
+- Nevymýšlej si fakta. Pokud něco nevíš nebo nemáš aktuální data, použij vyhledávací nástroj.
 - Vynechávej zbytečné úvody, opakování a omáčku.
 - Odpovídej neformálně jazykem kterým píše uživatel.
 """
 
-# Definice nástroje pro vyhledávání na webu pro Claude API
+# nastroje pro claude api
 TOOLS = [
     {
         "name": "web_search",
@@ -66,7 +66,7 @@ async def get_claude_response(otazka: str, max_tokens: int = 800) -> str:
     """Zpracuje dotaz přes Claude API s možností automatického vyhledávání na webu."""
     messages = [{"role": "user", "content": otazka}]
 
-    # 1. První volání Claudovi s nabídkou nástrojů
+    # 1. call claudovi s nabidkou tools
     response = claude.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=max_tokens,
@@ -75,18 +75,15 @@ async def get_claude_response(otazka: str, max_tokens: int = 800) -> str:
         tools=TOOLS
     )
 
-    # 2. Kontrola, zda si Claude vyžádal vyhledávání na webu
+    # 2. kontrola jestli si claude api vyzadal vyhledani na webu
     if response.stop_reason == "tool_use":
-        tool_use = next(block for block in response.content if block.type == "tool_use")
-        tool_name = tool_use.name
-        tool_input = tool_use.input
+        tool_use = next((block for block in response.content if block.type == "tool_use"), None)
 
-        if tool_name == "web_search":
-            query = tool_input.get("query")
+        if tool_use and tool_use.name == "web_search":
+            query = tool_use.input.get("query")
             print(f"[SEARCH] Prohledávám web pro: '{query}'")
             search_results = perform_web_search(query)
 
-            # Přidáme odpověď asistenta s požadavkem na tool a výsledek hledání do historie
             messages.append({"role": "assistant", "content": response.content})
             messages.append({
                 "role": "user",
@@ -99,7 +96,7 @@ async def get_claude_response(otazka: str, max_tokens: int = 800) -> str:
                 ],
             })
 
-            # 3. Druhé volání Claudovi s výsledky hledání
+            # 3. druhy call claudovi s vysledky hledani
             final_response = claude.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=max_tokens,
@@ -107,14 +104,14 @@ async def get_claude_response(otazka: str, max_tokens: int = 800) -> str:
                 messages=messages,
                 tools=TOOLS
             )
-            return final_response.content[0].text
 
-    # Pokud vyhledávání nebylo potřeba, vrátíme přímou odpověď
-    for block in response.content:
-        if block.type == "text":
-            return block.text
+            # bezpecne ziskani pouze textovych bloku
+            text_blocks = [block.text for block in final_response.content if getattr(block, "type", None) == "text"]
+            return "".join(text_blocks) if text_blocks else "Omlouvám se, nepodařilo se mi zpracovat odpověď z vyhledávání."
 
-    return "Nedařilo se vygenerovat odpověď."
+    # Pokud vyhledávání nebylo potřeba, vrátíme přímou odpověď z textových bloků
+    text_blocks = [block.text for block in response.content if getattr(block, "type", None) == "text"]
+    return "".join(text_blocks) if text_blocks else "Nedařilo se vygenerovat odpověď."
 
 
 @bot.event
