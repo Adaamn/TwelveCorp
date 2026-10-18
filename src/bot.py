@@ -15,7 +15,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 SYSTEM_PROMPT = """
-Jmenuješ se TwelveTron. 
+Jmenuješ se TwelveCorp. 
 - Používej jednoduchá a srozumitelná vysvětlení.
 - Pokud zadání není jasné, stručně se doptáš.
 - Nevymýšlej si fakta. Pokud něco nevíš, přiznej to.
@@ -23,9 +23,11 @@ Jmenuješ se TwelveTron.
 - Odpovídej neformálně jazykem kterým píše uživatel
 """
 
-
 @bot.event
 async def on_ready():
+    activity = discord.Activity(type=discord.ActivityType.watching, name="/ask")
+    await bot.change_presence(activity=activity)
+
     try:
         synced = await bot.tree.sync()
         print(f"Načteno {len(synced)} slash příkazů.")
@@ -34,11 +36,14 @@ async def on_ready():
 
     print(f"Bot {bot.user} je připraven k použití!")
 
-
-@bot.tree.command(name="ask", description="Zeptat se bota TwelveTron na cokoliv")
-@app_commands.describe(otazka="Tvoje otázka pro TwelveTrona")
+@bot.tree.command(name="ask", description="Zeptat se bota TwelveCorp na cokoliv")
+@app_commands.describe(otazka="Tvoje otázka pro TwelveCorp")
 async def ask_claude(interaction: discord.Interaction, otazka: str):
     await interaction.response.defer()
+
+    # Logování příchozí otázky
+    user_name = interaction.user.display_name
+    print(f"\n[ÚČET: {user_name}] Otázka: {otazka}")
 
     try:
         response = claude.messages.create(
@@ -52,28 +57,25 @@ async def ask_claude(interaction: discord.Interaction, otazka: str):
 
         reply_text = response.content[0].text
 
-        if len(reply_text) > 4000:
-            reply_text = reply_text[:3997] + "..."
+        # Logování vygenerované odpovědi
+        print(f"[TwelveCorp] Odpověď: {reply_text}\n" + "-"*40)
+
+        if len(reply_text) > 1024:
+            reply_text = reply_text[:1021] + "..."
 
         embed = discord.Embed(
-            title="🤖 TwelveTron AI",
+            title="🤖 TwelveCorp AI",
             description=reply_text,
-            color=discord.Color.blurple()
+            color=discord.Color.blue()
         )
         
-        embed.insert_field_at(
-            index=0, 
-            name=f"💬 Otázka od {interaction.user.display_name}", 
-            value=otazka, 
-            inline=False
-        )
-        
-        embed.set_footer(text="TwelveCorp AI Assistant")
+        embed.set_footer(text=f"Otázka od: {user_name}", icon_url=interaction.user.display_avatar.url)
+        embed.add_field(name="Původní otázka", value=otazka, inline=False)
 
         await interaction.followup.send(embed=embed)
 
     except Exception as e:
-        print(f"Chyba při komunikaci s API: {e}")
+        print(f"Chyba při komunikaci s Claude API: {e}")
         await interaction.followup.send("Omlouvám se, něco se pokazilo.")
 
 
