@@ -1,4 +1,5 @@
 import os
+import datetime
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -22,8 +23,9 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 tavily = TavilyClient(api_key=TAVILY_API_KEY) if TAVILY_API_KEY else None
 
-SYSTEM_PROMPT = """
-Jmenuješ se TwelveCorp. 
+CURRENT_YEAR = datetime.datetime.now().year
+SYSTEM_PROMPT = f"""
+Jmenuješ se TwelveCorp. Dnešní rok je {CURRENT_YEAR}.
 - Používej jednoduchá a srozumitelná vysvětlení.
 - Pokud zadání není jasné, stručně se doptáš.
 - Nevymýšlej si fakta. Pokud něco nevíš nebo nemáš aktuální data, použij vyhledávací nástroj.
@@ -35,7 +37,7 @@ Jmenuješ se TwelveCorp.
 TOOLS = [
     {
         "name": "web_search",
-        "description": "Vyhledá aktuální informace na internetu. Použij, pokud se uživatel ptá na aktuální zprávy, výsledky zápasů, počasí nebo věci po roce 2024.",
+        "description": "Vyhledá aktuální informace na internetu. Použij, pokud se uživatel ptá na aktuální zprávy, výsledky zápasů, počasí nebo čerstvá data.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -50,20 +52,20 @@ TOOLS = [
 ]
 
 def perform_web_search(query: str) -> str:
-    """Funkce pro provedení vyhledávání přes Tavily API."""
+    """Funkce pro provedení vyhledávání přes Tavily API (max 2 výsledky pro úsporu tokenů)."""
     if not tavily:
         return "Vyhledávání na webu není dostupné (chybí TAVILY_API_KEY)."
     try:
-        results = tavily.search(query=query, max_results=3)
+        results = tavily.search(query=query, max_results=2)
         formatted_results = []
         for res in results.get("results", []):
             formatted_results.append(f"Titul: {res['title']}\nObsah: {res['content']}\nURL: {res['url']}")
-        return "\n\n".join(formatted_results)
+        return "\n\n".join(formatted_results) if formatted_results else "Žádné výsledky nenalezeny."
     except Exception as e:
         return f"Chyba při vyhledávání: {e}"
 
 async def get_claude_response(otazka: str, max_tokens: int = 800) -> str:
-    """Zpracuje dotaz přes Claude API s možností automatického vyhledávání na webu."""
+    """Úsporné zpracování dotazu přes Claude API s max. 1 vyhledáváním."""
     messages = [{"role": "user", "content": otazka}]
 
     # 1. call claudovi s nabidkou tools
@@ -77,10 +79,8 @@ async def get_claude_response(otazka: str, max_tokens: int = 800) -> str:
 
     # 2. kontrola jestli si claude api vyzadal vyhledani na webu
     if response.stop_reason == "tool_use":
-        # Pridame kompletní odpoved asistenta do historie
         messages.append({"role": "assistant", "content": response.content})
 
-        # Zpracujeme VŠECHNY tool_use bloky, které Claude poslal
         tool_results = []
         for block in response.content:
             if block.type == "tool_use" and block.name == "web_search":
@@ -94,27 +94,24 @@ async def get_claude_response(otazka: str, max_tokens: int = 800) -> str:
                     "content": search_results,
                 })
 
-        # Pokud jsme našli výsledky, pošleme je najednou jako odpoved uzivatele
         if tool_results:
             messages.append({
                 "role": "user",
                 "content": tool_results
             })
 
-            # 3. druhy call claudovi s vysledky hledani
+            # 3. druhy a finální call claudovi s výsledky
             final_response = claude.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=max_tokens,
                 system=SYSTEM_PROMPT,
-                messages=messages,
-                tools=TOOLS
+                messages=messages
             )
 
-            # bezpecne ziskani pouze textovych bloku
             text_blocks = [block.text for block in final_response.content if getattr(block, "type", None) == "text"]
-            return "".join(text_blocks) if text_blocks else "Omlouvám se, nepodařilo se mi zpracovat odpověď z vyhledávání."
+            return "".join(text_blocks) if text_blocks else "Nedařilo se zpracovat odpověď z vyhledávání."
 
-    # Pokud vyhledávání nebylo potřeba, vrátíme přímou odpověď z textových bloků
+    # Pokud vyhledávání nebylo potřeba
     text_blocks = [block.text for block in response.content if getattr(block, "type", None) == "text"]
     return "".join(text_blocks) if text_blocks else "Nedařilo se vygenerovat odpověď."
 
