@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+TITLE = "🤖 TwelveCorp"
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -58,16 +59,16 @@ async def ask_claude(interaction: discord.Interaction, otazka: str):
         reply_text = response.content[0].text
         print(f"[TwelveCorp] Odpověď: {reply_text}\n" + "-"*40)
 
-        if len(reply_text) > 1024:
-            reply_text = reply_text[:1021] + "..."
+        if len(reply_text) > 2000:
+            reply_text = reply_text[:1997] + "..."
 
         embed = discord.Embed(
-            title="🤖 TwelveCorp",
+            title=TITLE,
             description=reply_text,
             color=discord.Color.blurple()
         )
         embed.set_footer(text=f"Otázka od: {user_name}", icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="Původní otázka", value=otazka, inline=False)
+        embed.add_field(name="Původní otázka", value=otazka if len(otazka) <= 1024 else otazka[:1021] + "...", inline=False)
 
         await interaction.followup.send(embed=embed)
 
@@ -76,13 +77,11 @@ async def ask_claude(interaction: discord.Interaction, otazka: str):
         await interaction.followup.send("Omlouvám se, něco se pokazilo.")
 
 
-
 @bot.event
 async def on_message(message):
 
     if message.author.bot:
         return
-
 
     if bot.user.mentioned_in(message):
 
@@ -107,12 +106,26 @@ async def on_message(message):
                 reply_text = response.content[0].text
                 print(f"[TwelveCorp] Odpověď na mention: {reply_text}\n" + "-"*40)
 
-                await message.reply(reply_text)
+                if len(reply_text) > 2000:
+                    reply_text = reply_text[:1997] + "..."
+
+                embed = discord.Embed(
+                    title=TITLE,
+                    description=reply_text,
+                    color=discord.Color.blurple()
+                )
+                embed.set_footer(text=f"Otázka od: {user_name}", icon_url=message.author.display_avatar.url)
+                embed.add_field(
+                    name="Původní otázka", 
+                    value=otazka if len(otazka) <= 1024 else otazka[:1021] + "...", 
+                    inline=False
+                )
+
+                await message.reply(embed=embed)
 
             except Exception as e:
                 print(f"Chyba při komunikaci s Claude API (mention): {e}")
                 await message.reply("Omlouvám se, něco se pokazilo.")
-
 
     await bot.process_commands(message)
 
