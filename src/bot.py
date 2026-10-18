@@ -11,6 +11,7 @@ load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+MODEL="claude-sonnet-5-5"
 
 TITLE = "🤖 TwelveCorp"
 EMBED_COLOR = discord.Color.from_str("#e6e6e6")
@@ -70,7 +71,7 @@ async def get_claude_response(otazka: str, max_tokens: int = 800) -> str:
 
     # 1. call claudovi s nabidkou tools
     response = claude.messages.create(
-        model="claude-sonnet-4-6",
+        model=MODEL,
         max_tokens=max_tokens,
         system=SYSTEM_PROMPT,
         messages=messages,
@@ -102,7 +103,7 @@ async def get_claude_response(otazka: str, max_tokens: int = 800) -> str:
 
             # 3. druhy a finální call claudovi s výsledky
             final_response = claude.messages.create(
-                model="claude-sonnet-4-6",
+                model=MODEL,
                 max_tokens=max_tokens,
                 system=SYSTEM_PROMPT,
                 messages=messages
