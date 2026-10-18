@@ -64,9 +64,9 @@ async def ask_claude(interaction: discord.Interaction, otazka: str):
             reply_text = reply_text[:1021] + "..."
 
         embed = discord.Embed(
-            title="🤖 TwelveCorp AI",
+            title="🤖 TwelveCorp",
             description=reply_text,
-            color=discord.Color.blue()
+            color=discord.Color.blurple()
         )
         
         embed.set_footer(text=f"Otázka od: {user_name}", icon_url=interaction.user.display_avatar.url)
