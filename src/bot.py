@@ -161,6 +161,21 @@ async def ask_claude(interaction: discord.Interaction, otazka: str):
         await interaction.followup.send("Omlouvám se, něco se pokazilo.")
 
 
+@bot.tree.command(name="ping", description="Zjistí aktuální latenci a odezvu bota")
+async def ping(interaction: discord.Interaction):
+    latency = round(bot.latency * 1000)
+    
+    print(f"\n[SLASH (/ping) od: {interaction.user.display_name}] Latence: {latency}ms")
+
+    embed = discord.Embed(
+        title=TITLE,
+        description=f"Odezva bota: **{latency} ms**",
+        color=EMBED_COLOR
+    )
+    embed.set_footer(text=f"Požadavek od: {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+
+    await interaction.response.send_message(embed=embed)
+
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -170,7 +185,7 @@ async def on_message(message):
         otazka = message.content.replace(f"<@{bot.user.id}>", "").replace(f"<@!{bot.user.id}>", "").strip()
         
         if not otazka:
-            await message.reply("Copak potřebuješ? Zeptej se na něco konkrétního!")
+            await message.reply("Co potřebuješ? Zeptej se na něco konkrétního.")
             return
 
         user_name = message.author.display_name
