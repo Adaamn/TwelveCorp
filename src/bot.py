@@ -71,7 +71,7 @@ def perform_web_search(query: str):
 async def get_claude_response(otazka: str, max_tokens: int = 800):
     """Úsporné zpracování dotazu přes Claude API s max. 1 vyhledáváním."""
     messages = [{"role": "user", "content": otazka}]
-    sources = []
+    all_sources = []
 
     # 1. call claudovi s nabidkou tools
     response = claude.messages.create(
@@ -92,6 +92,7 @@ async def get_claude_response(otazka: str, max_tokens: int = 800):
                 query = block.input.get("query")
                 print(f"[SEARCH] Prohledávám web pro: '{query}'")
                 search_results, sources = perform_web_search(query)
+                all_sources.extend(sources)
 
                 tool_results.append({
                     "type": "tool_result",
@@ -110,15 +111,16 @@ async def get_claude_response(otazka: str, max_tokens: int = 800):
                 model=MODEL,
                 max_tokens=max_tokens,
                 system=SYSTEM_PROMPT,
-                messages=messages
+                messages=messages,
+                tools=TOOLS
             )
 
             text_blocks = [block.text for block in final_response.content if getattr(block, "type", None) == "text"]
-            return ("".join(text_blocks) if text_blocks else "Nedařilo se zpracovat odpověď z vyhledávání."), sources
+            return ("".join(text_blocks) if text_blocks else "Nedařilo se zpracovat odpověď z vyhledávání."), all_sources
 
     # Pokud vyhledávání nebylo potřeba
     text_blocks = [block.text for block in response.content if getattr(block, "type", None) == "text"]
-    return ("".join(text_blocks) if text_blocks else "Nedařilo se vygenerovat odpověď."), sources
+    return ("".join(text_blocks) if text_blocks else "Nedařilo se vygenerovat odpověď."), all_sources
 
 
 @bot.event
