@@ -52,22 +52,26 @@ TOOLS = [
     }
 ]
 
-def perform_web_search(query: str) -> str:
+def perform_web_search(query: str):
     """Funkce pro provedení vyhledávání přes Tavily API (max 2 výsledky pro úsporu tokenů)."""
     if not tavily:
-        return "Vyhledávání na webu není dostupné (chybí TAVILY_API_KEY)."
+        return "Vyhledávání na webu není dostupné (chybí TAVILY_API_KEY).", []
     try:
         results = tavily.search(query=query, max_results=2)
         formatted_results = []
+        sources = []
         for res in results.get("results", []):
             formatted_results.append(f"Titul: {res['title']}\nObsah: {res['content']}\nURL: {res['url']}")
-        return "\n\n".join(formatted_results) if formatted_results else "Žádné výsledky nenalezeny."
+            if res.get('url'):
+                sources.append({"title": res.get('title', 'Zdroj'), "url": res['url']})
+        return ("\n\n".join(formatted_results) if formatted_results else "Žádné výsledky nenalezeny."), sources
     except Exception as e:
-        return f"Chyba při vyhledávání: {e}"
+        return f"Chyba při vyhledávání: {e}", []
 
-async def get_claude_response(otazka: str, max_tokens: int = 800) -> str:
+async def get_claude_response(otazka: str, max_tokens: int = 800):
     """Úsporné zpracování dotazu přes Claude API s max. 1 vyhledáváním."""
     messages = [{"role": "user", "content": otazka}]
+    sources = []
 
     # 1. call claudovi s nabidkou tools
     response = claude.messages.create(
@@ -87,7 +91,7 @@ async def get_claude_response(otazka: str, max_tokens: int = 800) -> str:
             if block.type == "tool_use" and block.name == "web_search":
                 query = block.input.get("query")
                 print(f"[SEARCH] Prohledávám web pro: '{query}'")
-                search_results = perform_web_search(query)
+                search_results, sources = perform_web_search(query)
 
                 tool_results.append({
                     "type": "tool_result",
@@ -110,11 +114,11 @@ async def get_claude_response(otazka: str, max_tokens: int = 800) -> str:
             )
 
             text_blocks = [block.text for block in final_response.content if getattr(block, "type", None) == "text"]
-            return "".join(text_blocks) if text_blocks else "Nedařilo se zpracovat odpověď z vyhledávání."
+            return ("".join(text_blocks) if text_blocks else "Nedařilo se zpracovat odpověď z vyhledávání."), sources
 
     # Pokud vyhledávání nebylo potřeba
     text_blocks = [block.text for block in response.content if getattr(block, "type", None) == "text"]
-    return "".join(text_blocks) if text_blocks else "Nedařilo se vygenerovat odpověď."
+    return ("".join(text_blocks) if text_blocks else "Nedařilo se vygenerovat odpověď."), sources
 
 
 @bot.event
@@ -140,7 +144,7 @@ async def ask_claude(interaction: discord.Interaction, otazka: str):
     print(f"\n[SLASH (/ask) od: {user_name}] Otázka: {otazka}")
 
     try:
-        reply_text = await get_claude_response(otazka, max_tokens=800)
+        reply_text, sources = await get_claude_response(otazka, max_tokens=800)
         print(f"[TwelveCorp] Odpověď: {reply_text}\n" + "-"*40)
 
         if len(reply_text) > 2000:
@@ -151,6 +155,10 @@ async def ask_claude(interaction: discord.Interaction, otazka: str):
             description=reply_text,
             color=EMBED_COLOR
         )
+        if sources:
+            formatted_sources = [f"🔗 [{s['title'][:37] + '...' if len(s['title']) > 40 else s['title']}]({s['url']})" for s in sources]
+            embed.add_field(name="Použité zdroje", value=" | ".join(formatted_sources), inline=False)
+
         embed.set_footer(text=f"Otázka od: {user_name}", icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="Původní otázka", value=otazka if len(otazka) <= 1024 else otazka[:1021] + "...", inline=False)
 
@@ -161,7 +169,7 @@ async def ask_claude(interaction: discord.Interaction, otazka: str):
         await interaction.followup.send("Omlouvám se, něco se pokazilo.")
 
 
-@bot.tree.command(name="ping", description="Zjistí aktuální latenci a odezvu bota")
+@bot.tree.command(name="ping", description="Zjistí latenci a odezvu bota")
 async def ping(interaction: discord.Interaction):
     latency = round(bot.latency * 1000)
     
@@ -193,7 +201,7 @@ async def on_message(message):
 
         async with message.channel.typing():
             try:
-                reply_text = await get_claude_response(otazka, max_tokens=600)
+                reply_text, sources = await get_claude_response(otazka, max_tokens=600)
                 print(f"[TwelveCorp] Odpověď na mention: {reply_text}\n" + "-"*40)
 
                 if len(reply_text) > 2000:
@@ -204,6 +212,10 @@ async def on_message(message):
                     description=reply_text,
                     color=EMBED_COLOR
                 )
+                if sources:
+                    formatted_sources = [f"🔗 [{s['title'][:37] + '...' if len(s['title']) > 40 else s['title']}]({s['url']})" for s in sources]
+                    embed.add_field(name="Použité zdroje", value=" | ".join(formatted_sources), inline=False)
+
                 embed.set_footer(text=f"Otázka od: {user_name}", icon_url=message.author.display_avatar.url)
                 embed.add_field(
                     name="Původní otázka", 
