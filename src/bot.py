@@ -1,3 +1,4 @@
+from art import text2art
 import discord
 from discord.ext import commands
 from config import DISCORD_TOKEN
@@ -20,6 +21,7 @@ async def on_ready():
     except Exception as e:
         print(f"Chyba při inicializaci bota: {e}")
 
+    print(text2art("TwelveCorp"))
     print(f"Bot {bot.user} je připraven k použití!")
 
 bot.run(DISCORD_TOKEN)
