@@ -111,3 +111,23 @@ async def get_larp_response(persona: str, user_input: str) -> str:
 
     text_blocks = [block.text for block in response.content if getattr(block, "type", None) == "text"]
     return "".join(text_blocks) if text_blocks else "Postava ztratila řeč..."
+
+
+async def translate_text(text: str, target_language: str) -> str:
+    system_prompt = (
+        "Jsi profesionální překladač pro Discord komunitu. "
+        f"Přelož zadaný text přirozeně do jazyka: {target_language}.\n"
+        "Pravidla:\n"
+        "- Zachovej původní význam, tón, slang i formátování.\n"
+        "- Vrať POUZE samotný přeložený text bez jakýchkoliv úvodních keců nebo uvozovek."
+    )
+
+    response = claude.messages.create(
+        model=MODEL,
+        max_tokens=600,
+        system=system_prompt,
+        messages=[{"role": "user", "content": text}]
+    )
+
+    text_blocks = [block.text for block in response.content if getattr(block, "type", None) == "text"]
+    return "".join(text_blocks) if text_blocks else "Nepodařilo se vygenerovat překlad."

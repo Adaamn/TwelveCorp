@@ -18,6 +18,7 @@ async def on_ready():
         await bot.load_extension("features.ping")
         await bot.load_extension("features.profile")
         await bot.load_extension("features.larp")
+        await bot.load_extension("features.translate")
 
         synced = await bot.tree.sync()
         print(f"Načteno {len(synced)} slash příkazů a cogs.")
