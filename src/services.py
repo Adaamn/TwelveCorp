@@ -68,3 +68,24 @@ async def get_claude_response(otazka: str, max_tokens: int = 800):
 
     text_blocks = [block.text for block in response.content if getattr(block, "type", None) == "text"]
     return ("".join(text_blocks) if text_blocks else "Nedařilo se vygenerovat odpověď."), all_sources
+
+
+async def get_profile_analysis(user_name: str, chat_history: str) -> str:
+    system_prompt = (
+        "Jsi sarkastický, vtipný, ale trefný AI analytik pro Discord server. "
+        "Dostaneš vzorek zpráv od konkrétního uživatele. Tvým úkolem je vytvořit "
+        "krátký, stručný, zábavný profil jeho osobnosti, stylu psaní, nálady nebo zvyků. "
+        "Piš česky, používej neformální jazyk, strukturuj odpověď přehledně "
+        "a na začátek každému uživateli přiřaď krátký originální 'Discord Titul'."
+    )
+    prompt = f"Zde jsou poslední zprávy uživatele {user_name}:\n{chat_history}\n\nUdělej jeho stručnou a zábavnou AI analýzu."
+
+    response = claude.messages.create(
+        model=MODEL,
+        max_tokens=1000,
+        system=system_prompt,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    text_blocks = [block.text for block in response.content if getattr(block, "type", None) == "text"]
+    return "".join(text_blocks) if text_blocks else "Nepodařilo se vygenerovat analýzu."

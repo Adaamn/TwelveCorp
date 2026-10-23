@@ -16,6 +16,7 @@ async def on_ready():
     try:
         await bot.load_extension("features.ai")
         await bot.load_extension("features.ping")
+        await bot.load_extension("features.profile")
         synced = await bot.tree.sync()
         print(f"Načteno {len(synced)} slash příkazů a cogs.")
     except Exception as e:
