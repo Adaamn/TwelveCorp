@@ -8,8 +8,8 @@ class AI(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="ask", description="Zeptat se bota TwelveCorp na cokoliv")
-    @app_commands.describe(otazka="Tvoje otázka pro TwelveCorp")
+    @app_commands.command(name="ask", description="Zeptat se bota na cokoliv")
+    @app_commands.describe(otazka="Tvoje otázka")
     async def ask_claude(self, interaction: discord.Interaction, otazka: str):
         await interaction.response.defer()
         user_name = interaction.user.display_name

@@ -89,3 +89,25 @@ async def get_profile_analysis(user_name: str, chat_history: str) -> str:
 
     text_blocks = [block.text for block in response.content if getattr(block, "type", None) == "text"]
     return "".join(text_blocks) if text_blocks else "Nepodařilo se vygenerovat analýzu."
+
+
+async def get_larp_response(persona: str, user_input: str) -> str:
+    system_prompt = (
+        f"Jsi zkušený LARP (Live Action Role Play) herec. "
+        f"Tvým úkolem je plně se vžít do následující postavy a odpovídat uživateli POUZE v této roli. "
+        f"Popis tvé postavy: {persona}\n\n"
+        f"Pravidla:\n"
+        f"- Reaguj autenticky, používej odpovídající tón, dialekt nebo slovník dle zadání.\n"
+        f"- Nikdy nevystupuj z role a nemluv jako AI model."
+        f"- Zanech LARP krátký a lehce s humorem a sarkasmem"
+    )
+
+    response = claude.messages.create(
+        model=MODEL,
+        max_tokens=800,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_input}]
+    )
+
+    text_blocks = [block.text for block in response.content if getattr(block, "type", None) == "text"]
+    return "".join(text_blocks) if text_blocks else "Postava ztratila řeč..."
