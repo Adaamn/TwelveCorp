@@ -131,3 +131,38 @@ async def translate_text(text: str, target_language: str) -> str:
 
     text_blocks = [block.text for block in response.content if getattr(block, "type", None) == "text"]
     return "".join(text_blocks) if text_blocks else "Nepodařilo se vygenerovat překlad."
+
+
+async def get_chat_reply(chat_history: list, current_user: str, latest_message: str) -> str:
+    system_prompt = (
+        "Jsi TwelveCorp, inteligentní, přátelský a lehce nad věcí člen Discord komunity. "
+        "Uživatelé tě zmínili v chatu. Reaguj přirozeně, stručně a lidsky v češtině.\n"
+        "PRAVIDLA:\n"
+        "- Historie chatu níže slouží POUZE jako kontext, abys věděl, o čem se lidé baví.\n"
+        "- NEROZEBÍREJ znovu staré otázky nebo témata z historie, která už byla zodpovězena.\n"
+        "- Odpovídej VÝHRADNĚ na poslední (nejnovější) zprávu od uživatele.\n"
+        "- Nepoužívej formální úvody ani zdravení."
+    )
+
+    # historie bez posledni zpravy
+    history_context = chat_history[:-1] if len(chat_history) > 1 else []
+    
+    formatted_context = ""
+    for msg in history_context:
+        formatted_context += f"{msg['author']}: {msg['content']}\n"
+
+    user_prompt = ""
+    if formatted_context:
+        user_prompt += f"Kontext předchozí konverzace:\n---\n{formatted_context}---\n\n"
+    
+    user_prompt += f"Poslední zpráva od '{current_user}', na kterou musíš zareagovat: {latest_message}"
+
+    response = claude.messages.create(
+        model=MODEL,
+        max_tokens=800,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_prompt}]
+    )
+
+    text_blocks = [block.text for block in response.content if getattr(block, "type", None) == "text"]
+    return "".join(text_blocks) if text_blocks else "Ahoj!"
