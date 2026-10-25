@@ -134,17 +134,24 @@ async def translate_text(text: str, target_language: str) -> str:
 
 
 async def get_chat_reply(chat_history: list, current_user: str, latest_message: str) -> str:
+    
+    SEARCH = "[INTERNET]"
 
     # hledani na internetu pres tavily api
     web_search_results = ""
     if latest_message:
         try:
+            print(f"{SEARCH} Bot hledá: '{latest_message}'")
+
             tavily_res = tavily.search(query=latest_message, max_results=3)
             results = tavily_res.get("results", [])
             if results:
                 web_search_results = "\n".join([f"- {r['title']}: {r['content']}" for r in results])
+                print(f"{SEARCH} Načteno {len(results)} výsledků")
+            else:
+                print(f"{SEARCH} Nenačteny žádné výsledky.")
         except Exception as e:
-            print(f"Chyba při vyhledávání na webu v chatu: {e}")
+            print(f"{SEARCH} Chyba při vyhledávání na webu v chatu: {e}")
 
     system_prompt = (
         "Jsi TwelveCorp, inteligentní, přátelský a lehce nad věcí člen Discord komunity. "
