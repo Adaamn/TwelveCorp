@@ -134,17 +134,29 @@ async def translate_text(text: str, target_language: str) -> str:
 
 
 async def get_chat_reply(chat_history: list, current_user: str, latest_message: str) -> str:
+
+    # hledani na internetu pres tavily api
+    web_search_results = ""
+    if latest_message:
+        try:
+            tavily_res = tavily.search(query=latest_message, max_results=3)
+            results = tavily_res.get("results", [])
+            if results:
+                web_search_results = "\n".join([f"- {r['title']}: {r['content']}" for r in results])
+        except Exception as e:
+            print(f"Chyba při vyhledávání na webu v chatu: {e}")
+
     system_prompt = (
         "Jsi TwelveCorp, inteligentní, přátelský a lehce nad věcí člen Discord komunity. "
         "Uživatelé tě zmínili v chatu. Reaguj přirozeně, stručně a lidsky v češtině.\n"
         "PRAVIDLA:\n"
-        "- Historie chatu níže slouží POUZE jako kontext, abys věděl, o čem se lidé baví.\n"
+        "- Historie chatu níže slouží POUZE jako kontext, abys věděl, o čem se lidé v kanálu bavili.\n"
         "- NEROZEBÍREJ znovu staré otázky nebo témata z historie, která už byla zodpovězena.\n"
         "- Odpovídej VÝHRADNĚ na poslední (nejnovější) zprávu od uživatele.\n"
-        "- Nepoužívej formální úvody ani zdravení."
+        "- Pokud jsou k dispozici výsledky z vyhledávání na webu, využij je k přesné a aktuální odpovědi.\n"
+        "- Nepoužívej formální úvody, zdravení ani nadbytečné strukturování."
     )
 
-    # historie bez posledni zpravy
     history_context = chat_history[:-1] if len(chat_history) > 1 else []
     
     formatted_context = ""
@@ -153,9 +165,12 @@ async def get_chat_reply(chat_history: list, current_user: str, latest_message: 
 
     user_prompt = ""
     if formatted_context:
-        user_prompt += f"Kontext předchozí konverzace:\n---\n{formatted_context}---\n\n"
+        user_prompt += f"Kontext předchozí konverzace v kanálu:\n---\n{formatted_context}---\n\n"
     
-    user_prompt += f"Poslední zpráva od '{current_user}', na kterou musíš zareagovat: {latest_message}"
+    if web_search_results:
+        user_prompt += f"Aktuální informace z internetu k dotazu:\n---\n{web_search_results}\n---\n\n"
+
+    user_prompt += f"Poslední zpráva od '{current_user}', na kterou musíš právě zareagovat: {latest_message}"
 
     response = claude.messages.create(
         model=MODEL,
