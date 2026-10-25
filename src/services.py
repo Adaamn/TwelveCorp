@@ -82,7 +82,7 @@ async def get_profile_analysis(user_name: str, chat_history: str) -> str:
 
     response = claude.messages.create(
         model=MODEL,
-        max_tokens=1000,
+        max_tokens=1500,
         system=system_prompt,
         messages=[{"role": "user", "content": prompt}]
     )
