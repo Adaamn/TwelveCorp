@@ -139,11 +139,43 @@ async def get_chat_reply(chat_history: list, current_user: str, latest_message: 
 
     # hledani na internetu pres tavily api
     web_search_results = ""
-    if latest_message:
-        try:
-            print(f"{SEARCH} Bot hledá: '{latest_message}'")
 
-            tavily_res = tavily.search(query=latest_message, max_results=3)
+    # Kontext historie pro vygenerování přesného dotazu
+    history_context = chat_history[:-1] if len(chat_history) > 1 else []
+    formatted_context = ""
+    for msg in history_context:
+        formatted_context += f"{msg['author']}: {msg['content']}\n"
+
+    search_query = None
+    if tavily and latest_message:
+        try:
+            query_prompt = (
+                "Jsi pomocník pro vyhledávání. Na základě kontextu chatu a poslední zprávy uživatele "
+                "vymysli 1 krátký, přesný a efektivní vyhledávací dotaz pro vyhledávač v češtině nebo angličtině.\n"
+                "Pokud zpráva NEVYŽADUJE vyhledávání na internetu (např. pozdrav, běžný pokec, názor nebo reakce, k níž nepotřebuješ data), napiš POUZE slovo 'NONE'.\n\n"
+                f"Kontext konverzace:\n{formatted_context}\n"
+                f"Poslední zpráva od {current_user}: {latest_message}\n\n"
+                "Vyhledávací dotaz:"
+            )
+
+            query_response = claude.messages.create(
+                model=MODEL,
+                max_tokens=50,
+                messages=[{"role": "user", "content": query_prompt}]
+            )
+            
+            raw_query = query_response.content[0].text.strip()
+            
+            if raw_query and "NONE" not in raw_query.upper():
+                search_query = raw_query
+
+        except Exception as e:
+            print(f"{SEARCH} Chyba při generování dotazu: {e}")
+
+    if search_query:
+        try:
+            print(f"{SEARCH} Claude vytvořil dotaz: '{search_query}' (Původní zpráva: '{latest_message}')")
+            tavily_res = tavily.search(query=search_query, max_results=3)
             results = tavily_res.get("results", [])
             if results:
                 web_search_results = "\n".join([f"- {r['title']}: {r['content']}" for r in results])
@@ -152,6 +184,8 @@ async def get_chat_reply(chat_history: list, current_user: str, latest_message: 
                 print(f"{SEARCH} Nenačteny žádné výsledky.")
         except Exception as e:
             print(f"{SEARCH} Chyba při vyhledávání na webu v chatu: {e}")
+    else:
+        print(f"{SEARCH} Vyhledávání přeskočeno (není potřeba).")
 
     system_prompt = (
         "Jsi TwelveCorp, inteligentní, přátelský a lehce nad věcí člen Discord komunity. "
@@ -163,12 +197,6 @@ async def get_chat_reply(chat_history: list, current_user: str, latest_message: 
         "- Pokud jsou k dispozici výsledky z vyhledávání na webu, využij je k přesné a aktuální odpovědi.\n"
         "- Nepoužívej formální úvody, zdravení ani nadbytečné strukturování."
     )
-
-    history_context = chat_history[:-1] if len(chat_history) > 1 else []
-    
-    formatted_context = ""
-    for msg in history_context:
-        formatted_context += f"{msg['author']}: {msg['content']}\n"
 
     user_prompt = ""
     if formatted_context:
